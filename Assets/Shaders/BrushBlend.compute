@@ -1,0 +1,108 @@
+// BrushBlend.compute
+// Compute-based paint stamping. Global UV only; no region remapping.
+// Matches the math of your fragment path but writes directly to the canvas.
+
+#pragma kernel PaintFull
+#pragma kernel PaintDirty
+
+// ---------- Resources ----------
+Texture2D<float4>   _Source;      // read-only canvas snapshot
+RWTexture2D<float4> _Target;      // writeable canvas
+Texture2D<float4>   _BrushTex;
+SamplerState        sampler_BrushTex;
+
+// ---------- Params ----------
+uint  _CanvasW;
+uint  _CanvasH;
+float _Aspect;        // canvas aspect ratio = width / height
+uint  _StampCount;    // <= 128
+
+// Dirty path dispatch window (in pixel space)
+uint2 _DirtyMin;      // inclusive
+uint2 _DirtySize;     // width/height
+
+// ---------- Stamp Buffer ----------
+struct Stamp
+{
+    float2 uv;           // GLOBAL (0..1) center
+    float  size;         // UV radius
+    float  rotationRad;  // NEW: radians (this is what C# is uploading now)
+    float4 color;        // RGBA
+};
+StructuredBuffer<Stamp> _Stamps;
+
+// ---------- Helpers ----------
+float4 BlendLerp(float4 baseCol, float4 overCol, float alpha)
+{
+    return baseCol + (overCol - baseCol) * alpha;
+}
+
+// Convert a pixel coord to normalized canvas UV
+float2 PixelToUV(uint2 pix)
+{
+    return (float2(pix)+0.5) / float2(_CanvasW, _CanvasH);
+}
+
+// Core stamping for a single pixel (shared by both kernels)
+float4 ShadePixel(uint2 pix)
+{
+    float2 globalUV = PixelToUV(pix);
+    float4 baseCol = _Source.Load(int3(pix, 0));
+
+    [loop]
+    for (uint j = 0; j < _StampCount; j++)
+    {
+        Stamp s = _Stamps[j];
+
+        float2 d = globalUV - s.uv;
+        d.x *= _Aspect;
+
+        // Rotate around stamp center
+        float sn, cs;
+        sincos(s.rotationRad, sn, cs);
+        d = float2(d.x * cs - d.y * sn,
+            d.x * sn + d.y * cs);
+
+        // Map to brush UV
+        float2 brushUV = d / s.size + 0.5;
+
+        // Outside brush quad -> skip
+        if (any(brushUV < 0.0) || any(brushUV > 1.0))
+            continue;
+
+        float4 brush = _BrushTex.SampleLevel(sampler_BrushTex, brushUV, 0);
+        brush = saturate(brush);                 // clamp bad values
+        float4 stamp = brush * s.color;
+        stamp.a = saturate(stamp.a);
+
+        // optional: premultiply color for correct layering
+        stamp.rgb *= stamp.a;
+
+        // standard alpha-over compositing
+        baseCol = baseCol * (1.0 - stamp.a) + stamp;
+    }
+
+    return baseCol;
+}
+
+// ---------- Full canvas path ----------
+[numthreads(8, 8, 1)]
+void PaintFull(uint3 tid : SV_DispatchThreadID)
+{
+    if (tid.x >= _CanvasW || tid.y >= _CanvasH) return;
+
+    uint2 pix = tid.xy;
+    _Target[pix] = ShadePixel(pix);
+}
+
+// ---------- Dirty rect path ----------
+[numthreads(8, 8, 1)]
+void PaintDirty(uint3 tid : SV_DispatchThreadID)
+{
+    if (tid.x >= _DirtySize.x || tid.y >= _DirtySize.y) return;
+
+    uint2 pix = _DirtyMin + tid.xy;
+    if (pix.x >= _CanvasW || pix.y >= _CanvasH) return;
+
+    _Target[pix] = ShadePixel(pix);
+}

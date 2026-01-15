@@ -1,0 +1,12 @@
+fileFormatVersion: 2
+guid: 7934e0e2243ee4cd3819bc6f3ea24fbd
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures:
+  - _MainTex: {instanceID: 0}
+  - _IslandMap: {instanceID: 0}
+  - _BrushTex: {instanceID: 0}
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

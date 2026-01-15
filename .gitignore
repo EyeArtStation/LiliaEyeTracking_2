@@ -12,6 +12,21 @@
 /[Uu]ser[Ss]ettings/
 *.log
 
+# --- Allow FinishedBuilds to be tracked ---
+!FinishedBuild/
+!FinishedBuild/**
+
+# Re-allow build artifacts inside FinishedBuild (because they're ignored globally above)
+!FinishedBuild/**/*.apk
+!FinishedBuild/**/*.aab
+!FinishedBuild/**/*.app
+!FinishedBuild/**/*.exe
+!FinishedBuild/**/*.dll
+!FinishedBuild/**/*.dmg
+!FinishedBuild/**/*.zip
+!FinishedBuild/**/*.unitypackage
+!FinishedBuild/**/*.unitypackage.meta
+
 # By default unity supports Blender asset imports, *.blend1 blender files do not need to be commited to version control.
 *.blend1
 *.blend1.meta
