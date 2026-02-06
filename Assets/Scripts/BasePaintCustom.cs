@@ -17,12 +17,19 @@ public class BasePaintCustom
         StampInterval,
         StampDistance,
         InterpolatedLine,
-        VelocityLineWidth
+        VelocityLineWidth,
+        Smudge, // NEW
+        WetBleed,
+        CloudConnect
     }
 
     // ---------- Shared fields ----------
     private RenderTexture target;
-    private Material mat;
+    //private Material mat;
+    private Material paintMat;
+    private Material smudgeMat;
+    private Material bleedMat;
+
     private Texture2D brush;
     public Color color;
 
@@ -47,21 +54,58 @@ public class BasePaintCustom
     private float currentPressure = 1f;
     private float smoothedSpeed = 0f;
     private PaintMode mode = PaintMode.StampInterval;
+    private Material ActiveMat =>
+     (mode == PaintMode.Smudge && smudgeMat != null) ? smudgeMat :
+     (mode == PaintMode.WetBleed && bleedMat != null) ? bleedMat :
+     paintMat;
 
     private const int MaxBatch = 128;
 
-    private struct BrushStamp 
-    { 
-        public Vector2 uv; 
+    [Header("Smudge")]
+    [Range(0f, 2f)] public float smudgeStrength = 0.9f;   // how strongly to blend pulled color
+    [Range(0f, 2f)] public float smudgePull = 0.35f;      // how far “behind” to sample, in brush radii
+    [Range(0.5f, 8f)] public float smudgeSoftness = 2.5f;
+
+    [Header("Wet Bleed")]
+    [Range(0f, 2f)] public float bleedStrength = 0.8f; // how strong the bleed is
+    [Range(0f, 1f)] public float bleedPull = 0.25f;    // how far inward to sample (in brush radii)
+    [Range(0f, 1f)] public float bleedEdgeStart = 0.55f; // start bleeding near edge (0=center, 1=edge)
+    [Range(0.5f, 8f)] public float bleedSoftness = 2.5f; // edge softness curve
+
+    [Header("Cloud Connect (Procedural Brush)")]
+    [Range(3, 12)] public int cloudPointCount = 6;           // "5 or 6 points"
+    [Range(1, 24)] public int cloudConnections = 8;          // how many lines from prev cloud to current
+    [Range(0f, 2f)] public float cloudRadiusInBrushRadii = 0.35f; // cloud radius relative to brush size
+    [Range(0f, 1f)] public float internalLineChance = 0.35f; // chance to draw internal lines
+    [Range(0.05f, 2f)] public float cloudStepInBrushRadii = 0.55f; // spacing between clouds
+    [Header("Cloud Connect")]
+    [Range(0.01f, 1f)] public float cloudLineThickness = 0.15f;
+
+    public bool connectNearest = true;                       // if false, connects random pairs
+
+    // runtime state
+    private readonly List<Vector2> prevCloud = new List<Vector2>(12);
+    private readonly List<Vector2> curCloud = new List<Vector2>(12);
+    private float cloudTravelAccum = 0f;
+    private bool hasPrevCloud = false;
+    private uint cloudRngState = 0x12345678u; // deterministic RNG per stroke
+
+    private struct BrushStamp
+    {
+        public Vector2 uv;
         public float size;
         public float rotationRad;
-        public Color color; 
-    
+        public Vector2 dir;     // NEW (for smudge)
+        public float strength;  // NEW (for smudge)
+        public Color color;
     }
+
     private readonly List<BrushStamp> stampQueue = new List<BrushStamp>(MaxBatch);
 
     private readonly Vector4[] stampDataCache = new Vector4[MaxBatch];
     private readonly Vector4[] colorDataCache = new Vector4[MaxBatch];
+    private readonly Vector4[] stampData2Cache = new Vector4[MaxBatch]; // dirX, dirY, strength, unused
+
 
     public PaintMode CurrentMode => mode;
     public void SetMode(PaintMode newMode) => mode = newMode;
@@ -91,13 +135,20 @@ public class BasePaintCustom
     public bool randomRotation = false;
     public float rotationAmount;
 
-    public void Init(RenderTexture targetTexture, Material paintMat, Texture2D brushTex,
-                     Color brushColor, float brushSize, float stampInterval,
-                     float distThreshold, float minPressure, float maxPressure, float maxVel,
-                     ComputeShader optionalCompute = null)
+    public void Init(RenderTexture targetTexture,
+                 Material paintMaterial,
+                 Material smudgeMaterial,
+                 Material bleedMaterial,
+                 Texture2D brushTex,
+                 Color brushColor,
+                 float brushSize, float stampInterval,
+                 float distThreshold, float minPressure, float maxPressure, float maxVel,
+                 ComputeShader optionalCompute = null)
     {
         target = targetTexture;
-        mat = paintMat;
+        paintMat = paintMaterial;
+        smudgeMat = smudgeMaterial;
+        bleedMat = bleedMaterial;
         brush = brushTex;
         color = brushColor;
 
@@ -109,14 +160,36 @@ public class BasePaintCustom
         maxP = maxPressure;
         maxSpeed = maxVel;
 
-        // fragment material defaults
-        mat.SetInt("_StampCount", 0);
-        mat.SetFloat("_RegionX", 0f);
-        mat.SetFloat("_RegionY", 0f);
-        mat.SetFloat("_RegionW", 1f);
-        mat.SetFloat("_RegionH", 1f);
-        mat.SetInt("_RegionSample", 0);
+        // defaults (for BOTH)
+        paintMat.SetInt("_StampCount", 0);
+        paintMat.SetFloat("_RegionX", 0f);
+        paintMat.SetFloat("_RegionY", 0f);
+        paintMat.SetFloat("_RegionW", 1f);
+        paintMat.SetFloat("_RegionH", 1f);
+        paintMat.SetInt("_RegionSample", 0);
 
+        if (smudgeMat != null)
+        {
+            smudgeMat.SetInt("_StampCount", 0);
+            smudgeMat.SetFloat("_RegionX", 0f);
+            smudgeMat.SetFloat("_RegionY", 0f);
+            smudgeMat.SetFloat("_RegionW", 1f);
+            smudgeMat.SetFloat("_RegionH", 1f);
+            smudgeMat.SetInt("_RegionSample", 0);
+            smudgeMat.SetFloat("_SmudgeSoftness", smudgeSoftness);
+        }
+
+        if (bleedMat != null)
+        {
+            bleedMat.SetInt("_StampCount", 0);
+            bleedMat.SetFloat("_RegionX", 0f);
+            bleedMat.SetFloat("_RegionY", 0f);
+            bleedMat.SetFloat("_RegionW", 1f);
+            bleedMat.SetFloat("_RegionH", 1f);
+            bleedMat.SetInt("_RegionSample", 0);
+        }
+
+        // keep your compute setup as-is (we’ll just NOT use compute for smudge in this simple version)
         compute = optionalCompute;
         if (compute != null)
         {
@@ -134,6 +207,7 @@ public class BasePaintCustom
             }
         }
     }
+
 
     public void SetBrushColor(Color c)
     {
@@ -256,6 +330,87 @@ public class BasePaintCustom
 
                 lastUV = uv;
                 break;
+            case PaintMode.Smudge:
+                // Smudge needs direction, so we need lastUV
+                if (lastUV.HasValue)
+                {
+                    Vector2 dir = uv - lastUV.Value;
+
+                    // stamp along line like InterpolatedLine to avoid gaps
+                    TryRenderSmudgeLine(lastUV.Value, uv, dir, currentPressure);
+                }
+                else
+                {
+                    // first touch: no real direction yet
+                    QueueSmudgeStamp(uv, size, Vector2.right, currentPressure);
+                }
+
+                lastUV = uv;
+                break;
+            case PaintMode.WetBleed:
+                // Bleed doesn't need direction, so treat it like your normal paint stamping.
+                // Use interpolated line so you don't get gaps.
+                if (lastUV.HasValue)
+                    TryRenderLine(lastUV.Value, uv, 1f, 1f);
+                else
+                    QueueStamp(uv, size);
+
+                lastUV = uv;
+                break;
+            case PaintMode.CloudConnect:
+                {
+                    // Determine pressure (use your external pressure if that's your active workflow)
+                    float p = (mode == PaintMode.VelocityLineWidth && useExternalPressureForVelocity)
+                        ? Mathf.Clamp(externalPressure, minP, maxP)
+                        : currentPressure;
+
+                    // First frame of stroke
+                    if (!lastUV.HasValue)
+                    {
+                        ResetCloudStroke(uv);
+                        BuildCloud(curCloud, uv, size, cloudRadiusInBrushRadii);
+
+                        // Drop a tiny seed so it starts visible immediately
+                        for (int i = 0; i < curCloud.Count; i++)
+                            QueueStamp(curCloud[i], size * 0.30f);
+
+                        prevCloud.Clear();
+                        prevCloud.AddRange(curCloud);
+                        hasPrevCloud = true;
+
+                        lastUV = uv;
+                        break;
+                    }
+
+                    // accumulate distance so we don't generate clouds *every* frame
+                    float dist = Vector2.Distance(lastUV.Value, uv);
+                    cloudTravelAccum += dist;
+
+                    float step = Mathf.Max(0.00001f, size * cloudStepInBrushRadii);
+
+                    if (cloudTravelAccum >= step)
+                    {
+                        cloudTravelAccum = 0f;
+
+                        BuildCloud(curCloud, uv, size, cloudRadiusInBrushRadii);
+
+                        // Connect previous cloud -> current cloud
+                        if (hasPrevCloud)
+                            DrawCloudConnections(prevCloud, curCloud, p);
+
+                        // Also add a couple tiny stamps to ensure you see nodes
+                        for (int i = 0; i < curCloud.Count; i++)
+                            QueueStamp(curCloud[i], size * 0.25f);
+
+                        // shift current -> previous
+                        prevCloud.Clear();
+                        prevCloud.AddRange(curCloud);
+                        hasPrevCloud = true;
+                    }
+
+                    lastUV = uv;
+                    break;
+                }
         }
 
         if (stampQueue.Count >= MaxBatch)
@@ -266,6 +421,12 @@ public class BasePaintCustom
     {
         lastUV = null;
         stampTimer = 0f;
+
+        prevCloud.Clear();
+        curCloud.Clear();
+        hasPrevCloud = false;
+        cloudTravelAccum = 0f;
+
         Flush();
     }
 
@@ -354,47 +515,100 @@ public class BasePaintCustom
         if (stampQueue.Count == 0)
             return;
 
+        // Smudge uses a different material + we keep it fragment-only for the simple modular version
+        bool isSmudge = (mode == PaintMode.Smudge);
+        bool isBleed = (mode == PaintMode.WetBleed);
+        Material matToUse = ActiveMat; // <- property you added: smudgeMat when Smudge, else paintMat
+
+        if (matToUse == null || target == null)
+        {
+            stampQueue.Clear();
+            ClearDirty();
+            return;
+        }
+
         // Keep dirty region for the entire flush (multiple batches)
-        bool wantDirty = useDirtyRegionBlit && hasDirtyRegion;
+        bool wantDirty = (!isSmudge && !isBleed && useDirtyRegionBlit && hasDirtyRegion);
+
+
+        int safety = 0;
 
         // Render everything in MaxBatch chunks (don’t drop stamps)
-        int safety = 0;
         while (stampQueue.Count > 0)
         {
-            int count = Mathf.Min(stampQueue.Count, MaxBatch);
+            int shaderBatch = isBleed ? 32 : MaxBatch; // WetBleed shader only handles 32
+            int count = Mathf.Min(stampQueue.Count, shaderBatch);
 
             for (int i = 0; i < count; i++)
             {
                 var s = stampQueue[i];
+
+                // Always fill base stamp data (uv, size, rotation)
                 stampDataCache[i] = new Vector4(s.uv.x, s.uv.y, s.size, s.rotationRad);
+
+                // Paint uses colors; Smudge can ignore this (harmless to fill anyway)
                 colorDataCache[i] = (Vector4)s.color;
+
+                // Smudge extras (dir + strength); Paint can ignore (harmless to fill anyway)
+                stampData2Cache[i] = new Vector4(s.dir.x, s.dir.y, s.strength, 0f);
             }
 
+            // Compute is allowed for your normal paint modes, but keep Smudge fragment-only for simplicity.
             bool didCompute = false;
-            if (compute != null && useComputeIfAvailable && stampBuffer != null && target != null)
+            bool allowCompute = (!isSmudge && !isBleed);
+
+            if (compute != null && useComputeIfAvailable && allowCompute && stampBuffer != null && target != null)
             {
                 didCompute = ComputeFlush(count);
             }
 
             if (!didCompute)
             {
-                mat.SetInt("_StampCount", count);
-                mat.SetVectorArray("_StampData", stampDataCache);
-                mat.SetVectorArray("_StampColors", colorDataCache);
-                mat.SetTexture("_MainTex", target);
-                mat.SetTexture("_BrushTex", brush);
-                mat.SetFloat("_Aspect", (float)target.width / target.height);
+                // ---- set common uniforms ----
+                matToUse.SetInt("_StampCount", count);
+                matToUse.SetVectorArray("_StampData", stampDataCache);
 
+                matToUse.SetTexture("_MainTex", target);
+                matToUse.SetTexture("_BrushTex", brush);
+                matToUse.SetFloat("_Aspect", (float)target.width / target.height);
+
+                // ---- set mode-specific uniforms ----
+                if (isSmudge)
+                {
+                    matToUse.SetVectorArray("_StampData2", stampData2Cache);
+                    matToUse.SetFloat("_SmudgeStrength", smudgeStrength);
+                    matToUse.SetFloat("_SmudgePull", smudgePull);
+                    matToUse.SetFloat("_SmudgeSoftness", smudgeSoftness);
+                }
+                else if (mode == PaintMode.WetBleed)
+                {
+                    matToUse.SetVectorArray("_StampColors", colorDataCache);
+                    matToUse.SetFloat("_MaxStamps", 32f); // IMPORTANT: match shader loop
+                    //matToUse.SetVectorArray("_StampColors", colorDataCache); // still uses color
+                    //matToUse.SetFloat("_BleedStrength", bleedStrength);
+                    //matToUse.SetFloat("_BleedPull", bleedPull);
+                    //matToUse.SetFloat("_BleedEdgeStart", bleedEdgeStart);
+                    //matToUse.SetFloat("_BleedSoftness", bleedSoftness);
+                }
+                else
+                {
+                    matToUse.SetVectorArray("_StampColors", colorDataCache);
+                }
+
+                // ---- blit full or dirty region ----
                 if (!wantDirty)
                 {
+                    // Full-frame ping-pong
                     RenderTexture temp = RenderTexture.GetTemporary(target.descriptor);
-                    Graphics.Blit(target, temp, mat);
+                    Graphics.Blit(target, temp, matToUse);
                     Graphics.Blit(temp, target);
                     RenderTexture.ReleaseTemporary(temp);
                 }
                 else
                 {
-                    // IMPORTANT: the dirty methods must NOT ClearDirty() per-batch anymore
+                    // IMPORTANT:
+                    // These dirty methods must use ActiveMat internally (or accept a Material param).
+                    // If you haven’t updated them yet, change their internal "mat" usage to ActiveMat.
                     if (forceSafeBlit) DoSafePingPongDirtyBlit();
                     else DoFastSingleDirtyBlit();
                 }
@@ -404,13 +618,18 @@ public class BasePaintCustom
             stampQueue.RemoveRange(0, count);
 
             // Just in case (prevents infinite loops if something goes weird)
-            if (++safety > 5000) { stampQueue.Clear(); break; }
+            if (++safety > 5000)
+            {
+                stampQueue.Clear();
+                break;
+            }
         }
 
         // Clear dirty once at the end (not inside dirty blit methods anymore)
         if (wantDirty)
             ClearDirty();
     }
+
 
 
     // ---------- Compute flush ----------
@@ -546,23 +765,23 @@ public class BasePaintCustom
         RenderTexture temp = RenderTexture.GetTemporary(w, h, 0, target.format);
         Graphics.CopyTexture(target, 0, 0, xMin, yMin, w, h, temp, 0, 0, 0, 0);
 
-        mat.SetTexture("_MainTex", target);
-        mat.SetFloat("_RegionX", regionX);
-        mat.SetFloat("_RegionY", regionY);
-        mat.SetFloat("_RegionW", regionW);
-        mat.SetFloat("_RegionH", regionH);
-        mat.SetInt("_RegionSample", 0);
+        ActiveMat.SetTexture("_MainTex", target);
+        ActiveMat.SetFloat("_RegionX", regionX);
+        ActiveMat.SetFloat("_RegionY", regionY);
+        ActiveMat.SetFloat("_RegionW", regionW);
+        ActiveMat.SetFloat("_RegionH", regionH);
+        ActiveMat.SetInt("_RegionSample", 0);
 
-        Graphics.Blit(target, temp, mat);
+        Graphics.Blit(target, temp, ActiveMat);
         Graphics.CopyTexture(temp, 0, 0, 0, 0, w, h, target, 0, 0, xMin, yMin);
 
         RenderTexture.ReleaseTemporary(temp);
 
-        mat.SetFloat("_RegionX", 0f);
-        mat.SetFloat("_RegionY", 0f);
-        mat.SetFloat("_RegionW", 1f);
-        mat.SetFloat("_RegionH", 1f);
-        mat.SetInt("_RegionSample", 0);
+        ActiveMat.SetFloat("_RegionX", 0f);
+        ActiveMat.SetFloat("_RegionY", 0f);
+        ActiveMat.SetFloat("_RegionW", 1f);
+        ActiveMat.SetFloat("_RegionH", 1f);
+        ActiveMat.SetInt("_RegionSample", 0);
 
         //ClearDirty();
     }
@@ -588,24 +807,24 @@ public class BasePaintCustom
 
         Graphics.CopyTexture(target, 0, 0, xMin, yMin, w, h, tempA, 0, 0, 0, 0);
 
-        mat.SetTexture("_MainTex", tempA);
-        mat.SetFloat("_RegionX", regionX);
-        mat.SetFloat("_RegionY", regionY);
-        mat.SetFloat("_RegionW", regionW);
-        mat.SetFloat("_RegionH", regionH);
-        mat.SetInt("_RegionSample", 1);
+        ActiveMat.SetTexture("_MainTex", tempA);
+        ActiveMat.SetFloat("_RegionX", regionX);
+        ActiveMat.SetFloat("_RegionY", regionY);
+        ActiveMat.SetFloat("_RegionW", regionW);
+        ActiveMat.SetFloat("_RegionH", regionH);
+        ActiveMat.SetInt("_RegionSample", 1);
 
-        Graphics.Blit(tempA, tempB, mat);
+        Graphics.Blit(tempA, tempB, ActiveMat);
         Graphics.CopyTexture(tempB, 0, 0, 0, 0, w, h, target, 0, 0, xMin, yMin);
 
         RenderTexture.ReleaseTemporary(tempA);
         RenderTexture.ReleaseTemporary(tempB);
 
-        mat.SetFloat("_RegionX", 0f);
-        mat.SetFloat("_RegionY", 0f);
-        mat.SetFloat("_RegionW", 1f);
-        mat.SetFloat("_RegionH", 1f);
-        mat.SetInt("_RegionSample", 0);
+        ActiveMat.SetFloat("_RegionX", 0f);
+        ActiveMat.SetFloat("_RegionY", 0f);
+        ActiveMat.SetFloat("_RegionW", 1f);
+        ActiveMat.SetFloat("_RegionH", 1f);
+        ActiveMat.SetInt("_RegionSample", 0);
 
         //ClearDirty();
     }
@@ -616,4 +835,223 @@ public class BasePaintCustom
         dirtyMin = new Vector2(1f, 1f);
         dirtyMax = new Vector2(0f, 0f);
     }
+
+    private void QueueSmudgeStamp(Vector2 uv, float scaledSize, Vector2 dir, float strength)
+    {
+        // normalize dir safely
+        float mag = dir.magnitude;
+        if (mag < 1e-6f) dir = Vector2.right;
+        else dir /= mag;
+
+        stampQueue.Add(new BrushStamp
+        {
+            uv = uv,
+            size = scaledSize,
+            rotationRad = 0f,
+            dir = dir,
+            strength = strength,
+            color = Color.clear
+        });
+
+        // dirty region same as normal
+        if (useDirtyRegionBlit)
+        {
+            Vector2 brushExtent = Vector2.one * scaledSize;
+
+            if (!hasDirtyRegion)
+            {
+                dirtyMin = uv - brushExtent;
+                dirtyMax = uv + brushExtent;
+                hasDirtyRegion = true;
+            }
+            else
+            {
+                dirtyMin = Vector2.Min(dirtyMin, uv - brushExtent);
+                dirtyMax = Vector2.Max(dirtyMax, uv + brushExtent);
+            }
+        }
+    }
+
+    private void TryRenderSmudgeLine(Vector2 startUV, Vector2 endUV, Vector2 dir, float pressure)
+    {
+        float distUV = Vector2.Distance(startUV, endUV);
+        if (distUV <= 1e-7f)
+        {
+            QueueSmudgeStamp(endUV, size * pressure, dir, pressure);
+            return;
+        }
+
+        float distPixels = distUV * target.width;
+
+        float avgPressure = Mathf.Clamp01(pressure);
+        float stampPx = Mathf.Max(0.25f, (size * avgPressure) * target.width);
+
+        float baseBrushPx = Mathf.Max(0.0001f, size * target.width);
+        float maxStep = Mathf.Max(0.5f, baseBrushPx * strokeSmoothness);
+        float overlapStep = stampPx * overlapInterval;
+
+        float pixelStep = Mathf.Clamp(overlapStep, 0.25f, maxStep); // smaller min step than paint
+
+
+        int steps = Mathf.CeilToInt(distPixels / Mathf.Max(0.0001f, pixelStep));
+        steps = Mathf.Clamp(steps, 1, 8192);
+
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = i / (float)steps;
+            Vector2 interpUV = Vector2.Lerp(startUV, endUV, t);
+            QueueSmudgeStamp(interpUV, size * avgPressure, dir, avgPressure);
+        }
+    }
+
+    //HELPERS FOR CLOUD BRUSH
+    // Small, fast deterministic RNG (no allocations)
+    private uint NextU()
+    {
+        cloudRngState ^= cloudRngState << 13;
+        cloudRngState ^= cloudRngState >> 17;
+        cloudRngState ^= cloudRngState << 5;
+        return cloudRngState;
+    }
+    private float Next01() => (NextU() & 0x00FFFFFFu) / 16777215f;
+
+    private Vector2 RandomInUnitCircle()
+    {
+        // polar method
+        float a = Next01() * Mathf.PI * 2f;
+        float r = Mathf.Sqrt(Next01());
+        return new Vector2(Mathf.Cos(a) * r, Mathf.Sin(a) * r);
+    }
+
+    private void ResetCloudStroke(Vector2 startUV)
+    {
+        prevCloud.Clear();
+        curCloud.Clear();
+        hasPrevCloud = false;
+        cloudTravelAccum = 0f;
+
+        // seed from UV so each stroke is stable but different
+        unchecked
+        {
+            uint sx = (uint)(Mathf.Abs(startUV.x) * 100000f);
+            uint sy = (uint)(Mathf.Abs(startUV.y) * 100000f);
+            cloudRngState = 0x9E3779B9u ^ (sx * 374761393u) ^ (sy * 668265263u) ^ (uint)Time.frameCount;
+            if (cloudRngState == 0) cloudRngState = 0x12345678u;
+        }
+    }
+
+    private void BuildCloud(List<Vector2> dst, Vector2 centerUV, float brushSizeWidthNorm, float radiusInRadii)
+    {
+        dst.Clear();
+
+        // brushSizeWidthNorm is your "size" which is width-normalized UV units
+        // cloud radius in UV = brushSize * radiusInRadii
+        float rad = brushSizeWidthNorm * Mathf.Max(0.0001f, radiusInRadii);
+
+        for (int i = 0; i < cloudPointCount; i++)
+        {
+            Vector2 off = RandomInUnitCircle() * rad;
+            Vector2 p = centerUV + off;
+
+            // clamp to canvas UV (avoid drawing outside)
+            p.x = Mathf.Clamp01(p.x);
+            p.y = Mathf.Clamp01(p.y);
+
+            dst.Add(p);
+        }
+    }
+
+    private int FindNearestIndex(List<Vector2> pts, Vector2 target)
+    {
+        int best = 0;
+        float bestD = float.PositiveInfinity;
+        for (int i = 0; i < pts.Count; i++)
+        {
+            float d = (pts[i] - target).sqrMagnitude;
+            if (d < bestD) { bestD = d; best = i; }
+        }
+        return best;
+    }
+
+    private void DrawCloudConnections(List<Vector2> fromPts, List<Vector2> toPts, float pressure)
+    {
+        if (fromPts.Count == 0 || toPts.Count == 0) return;
+
+        // Connection thickness scales with pressure but clamps so it stays visible
+        float p = Mathf.Clamp(pressure, 0.15f, 1.0f);
+
+        // Draw several lines between the two clouds
+        int links = Mathf.Clamp(cloudConnections, 1, 64);
+
+        for (int k = 0; k < links; k++)
+        {
+            // pick a "to" point
+            int b = Mathf.FloorToInt(Next01() * toPts.Count);
+            b = Mathf.Clamp(b, 0, toPts.Count - 1);
+
+            int a;
+            if (connectNearest)
+            {
+                a = FindNearestIndex(fromPts, toPts[b]);
+            }
+            else
+            {
+                a = Mathf.FloorToInt(Next01() * fromPts.Count);
+                a = Mathf.Clamp(a, 0, fromPts.Count - 1);
+            }
+
+            // Render a line between those points using your existing stamping line renderer.
+            // This automatically queues stamps along the segment, so it *won't* be just 2 dots.
+            //TryRenderLine(fromPts[a], toPts[b], p, p);
+            TryRenderWireLine(fromPts[a], toPts[b]);
+        }
+
+        // Optional: some internal "web" lines inside current cloud
+        if (Next01() < internalLineChance && toPts.Count >= 2)
+        {
+            int internalLinks = Mathf.Max(1, Mathf.Min(3, toPts.Count / 2));
+            for (int j = 0; j < internalLinks; j++)
+            {
+                int i0 = Mathf.FloorToInt(Next01() * toPts.Count);
+                int i1 = Mathf.FloorToInt(Next01() * toPts.Count);
+                if (i0 == i1) i1 = (i1 + 1) % toPts.Count;
+
+                TryRenderWireLine(toPts[i0], toPts[i1]);
+            }
+        }
+    }
+
+    private void TryRenderWireLine(Vector2 startUV, Vector2 endUV)
+    {
+        float distUV = Vector2.Distance(startUV, endUV);
+        if (distUV <= 0.0000001f)
+        {
+            QueueStamp(endUV, size * cloudLineThickness);
+            return;
+        }
+
+        float distPixels = distUV * target.width;
+
+        // IMPORTANT: use THINNER effective diameter
+        float wireSize = size * cloudLineThickness;
+        float stampPx = Mathf.Max(0.25f, wireSize * target.width);
+
+        // Keep original smoothness logic
+        float baseBrushPx = Mathf.Max(0.0001f, wireSize * target.width);
+        float maxStep = Mathf.Max(0.5f, baseBrushPx * strokeSmoothness);
+
+        float overlapStep = stampPx * overlapInterval;
+        float pixelStep = Mathf.Clamp(overlapStep, 0.5f, maxStep);
+
+        int steps = Mathf.CeilToInt(distPixels / Mathf.Max(0.0001f, pixelStep));
+        steps = Mathf.Clamp(steps, 1, 2048);
+
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = i / (float)steps;
+            Vector2 interpUV = Vector2.Lerp(startUV, endUV, t);
+            QueueStamp(interpUV, wireSize);
+        }
+    }
+
 }

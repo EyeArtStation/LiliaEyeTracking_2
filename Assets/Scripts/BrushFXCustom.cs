@@ -27,6 +27,7 @@ public class BrushFXCustom : MonoBehaviour
     public float rotationAmount;
 
     public bool randomizeOpacity;
+    private int curremtBrushTexture;
 
     public void RainbowMode()
     {
@@ -64,6 +65,35 @@ public class BrushFXCustom : MonoBehaviour
         {
             RandomizeOpacity();
         }
+
+        if (Input.GetKeyDown(KeyCode.H))
+        {
+            ChangeBrushMode(4);
+            mediumBrushSize = 0.05f;
+            ChangeBrushSize(1);
+        }
+
+        /*if (Input.GetKeyDown(KeyCode.I))
+        {
+            paintManagerCustom.painter.smudgeStrength -= 0.1f;
+        }
+        if (Input.GetKeyDown(KeyCode.O))
+        {
+            paintManagerCustom.painter.smudgeStrength += 0.1f;
+        }
+        if (Input.GetKeyDown(KeyCode.K))
+        {
+            paintManagerCustom.painter.smudgePull -= 0.1f;
+        }
+        if (Input.GetKeyDown(KeyCode.L))
+        {
+            paintManagerCustom.painter.smudgePull += 0.1f;
+        }*/
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            paintManagerCustom.painter.SetBrushTexture(brushTextures[curremtBrushTexture]);
+            curremtBrushTexture++;
+        }
     }
 
     public void CycleBushTex()
@@ -99,6 +129,13 @@ public class BrushFXCustom : MonoBehaviour
         Debug.Log("Rainbow Button Pushed");
     }
 
+    public void SetOpacity(float opacity)
+    {
+        Color currentColor = paintManagerCustom.painter.color;
+        currentColor.a = opacity;
+        paintManagerCustom.painter.SetBrushColor(currentColor);
+    }
+
     public void ChangeBrushSize(int sizeMode)
     {
         switch (sizeMode)
@@ -131,6 +168,15 @@ public class BrushFXCustom : MonoBehaviour
             case 3:
                 paintManagerCustom.painter.SetMode(BasePaintCustom.PaintMode.StampInterval);
                 break;
+            case 4:
+                paintManagerCustom.painter.SetMode(BasePaintCustom.PaintMode.Smudge);
+                break;
+            case 5:
+                paintManagerCustom.painter.SetMode(BasePaintCustom.PaintMode.WetBleed);
+                break;
+            case 6:
+                paintManagerCustom.painter.SetMode(BasePaintCustom.PaintMode.CloudConnect);
+                break;
         }
     }
 
@@ -145,11 +191,15 @@ public class BrushFXCustom : MonoBehaviour
         rotateStroke = false;
         paintManagerCustom.painter.rotationAmount = 0f;
         rotationAmount = 0;
+        paintManagerCustom.painter.randomRotation = false;
         mediumBrushSize = 0.01f;
         ChangeBrushSize(1);
         ChangeBrushMode(0); //Velocity Line
         cycleBrushTexture = false;
         randomizeOpacity = false;
+        paintManagerCustom.painter.overlapInterval = 0.20f;
+        paintManagerCustom.painter.strokeSmoothness = 0.35f;
+        SetOpacity(1f);
     }
 
     public void Brush_Line()
@@ -158,11 +208,16 @@ public class BrushFXCustom : MonoBehaviour
         rotateStroke = false;
         paintManagerCustom.painter.rotationAmount = 0f;
         rotationAmount = 0;
+        paintManagerCustom.painter.randomRotation = false;
         mediumBrushSize = 0.01f;
         ChangeBrushSize(1);
         ChangeBrushMode(1); //Fixed Width Line
         cycleBrushTexture = false;
         randomizeOpacity = false;
+        paintManagerCustom.SetStampInterval(0.0001f);
+        paintManagerCustom.painter.overlapInterval = 0.20f;
+        paintManagerCustom.painter.strokeSmoothness = 0.35f;
+        SetOpacity(1f);
     }
 
     public void Brush_Leaf()
@@ -170,11 +225,15 @@ public class BrushFXCustom : MonoBehaviour
         paintManagerCustom.SetBrushTexture(brushTextures[7]);
         rotateStroke = true;
         rotationAmount = 10;
+        paintManagerCustom.painter.randomRotation = false;
         mediumBrushSize = 0.01f;
         ChangeBrushSize(1);
         ChangeBrushMode(2); //Stamp Distance
         cycleBrushTexture = false;
         randomizeOpacity = false;
+        paintManagerCustom.painter.overlapInterval = 0.20f;
+        paintManagerCustom.painter.strokeSmoothness = 0.35f;
+        SetOpacity(1f);
     }
 
     public void Brush_SpinLine()
@@ -182,24 +241,86 @@ public class BrushFXCustom : MonoBehaviour
         paintManagerCustom.SetBrushTexture(brushTextures[47]);
         rotateStroke = true;
         rotationAmount = 0.5f;
+        paintManagerCustom.painter.randomRotation = false;
         mediumBrushSize = 0.05f;
         ChangeBrushSize(1);
         ChangeBrushMode(2); //Stamp Distance
         cycleBrushTexture = false;
         randomizeOpacity = false;
-
+        paintManagerCustom.painter.overlapInterval = 0.20f;
+        paintManagerCustom.painter.strokeSmoothness = 0.35f;
+        SetOpacity(1f);
     }
 
-    public void Brush_SprayCycle()
+    public void Brush_Bubble()
     {
+        //The brush texture below doesn't matter because the cyclebrush is set true in update
         paintManagerCustom.SetBrushTexture(brushTextures[47]);
         rotateStroke = true;
         rotationAmount = 1;
+        paintManagerCustom.painter.randomRotation = true;
         mediumBrushSize = 0.05f;
+        
         ChangeBrushSize(1);
         ChangeBrushMode(3); //Stamp Interval
         cycleBrushTexture = true;
         randomizeOpacity = true;
         paintManagerCustom.SetStampInterval(0.0005f);
+        paintManagerCustom.painter.overlapInterval = 0.08f;
+        paintManagerCustom.painter.strokeSmoothness = 0.18f;
+        SetOpacity(1f);
+    }
+
+    public void Brush_Smudge()
+    {
+        paintManagerCustom.SetBrushTexture(brushTextures[0]);
+        rotateStroke = false;
+        rotationAmount = 1;
+        paintManagerCustom.painter.randomRotation = false;
+        mediumBrushSize = 0.05f;
+        ChangeBrushSize(1);
+        ChangeBrushMode(4);
+        cycleBrushTexture = false;
+        randomizeOpacity = false;
+        paintManagerCustom.SetStampInterval(0.0005f);
+        paintManagerCustom.painter.overlapInterval = 0.20f;
+        paintManagerCustom.painter.strokeSmoothness = 0.35f;
+        SetOpacity(1f);
+    }
+
+    public void Brush_Bleed()
+    {
+        paintManagerCustom.SetBrushTexture(brushTextures[48]);
+        rotateStroke = true;
+        rotationAmount = 0;
+        paintManagerCustom.painter.randomRotation = true;
+        mediumBrushSize = 0.010f;
+        ChangeBrushSize(1);
+        ChangeBrushMode(5);
+        cycleBrushTexture = false;
+        randomizeOpacity = false;
+        paintManagerCustom.SetStampInterval(0.0001f);
+        SetOpacity(1f);
+        paintManagerCustom.painter.overlapInterval = 0.08f;
+        paintManagerCustom.painter.strokeSmoothness = 0.18f;
+
+        
+}
+
+    public void Brush_CloudConnect()
+    {
+        paintManagerCustom.SetBrushTexture(brushTextures[0]); //Circle Texture
+        rotateStroke = false;
+        paintManagerCustom.painter.rotationAmount = 0f;
+        rotationAmount = 0;
+        paintManagerCustom.painter.randomRotation = false;
+        mediumBrushSize = 0.01f;
+        ChangeBrushSize(1);
+        ChangeBrushMode(6); //Fixed Width Line
+        cycleBrushTexture = false;
+        randomizeOpacity = false;
+        paintManagerCustom.painter.overlapInterval = 0.20f;
+        paintManagerCustom.painter.strokeSmoothness = 0.35f;
+        SetOpacity(1f);
     }
 }

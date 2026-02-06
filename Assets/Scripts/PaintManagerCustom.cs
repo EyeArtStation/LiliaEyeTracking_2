@@ -12,6 +12,8 @@ public class PaintManagerCustom : MonoBehaviour
     public Renderer paintTarget;                 // ✅ assign the plane's Renderer
     public RenderTexture targetTexture;
     public Material fragmentPaintMaterial;
+    public Material smudgeMaterial;
+    public Material bleedMaterial;
     public Texture2D brushTexture;
     public ComputeShader brushCompute;
 
@@ -99,6 +101,7 @@ public class PaintManagerCustom : MonoBehaviour
     public LayerMask paintLayerMask = ~0;
 
     private bool initialized = false;
+
 
     private void Awake()
     {
@@ -189,7 +192,12 @@ public class PaintManagerCustom : MonoBehaviour
         painter.useComputeIfAvailable = computeOn;
 
         painter.Init(
-            targetTexture, fragmentPaintMaterial, brushTexture, brushColor,
+            targetTexture,
+            fragmentPaintMaterial,
+            smudgeMaterial,
+            bleedMaterial,      // NEW
+            brushTexture,
+            brushColor,
             brushSize, stampInterval, distanceThreshold,
             minPressure, maxPressure, maxSpeed,
             brushCompute

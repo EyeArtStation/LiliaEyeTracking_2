@@ -4628,7 +4628,7 @@ GameObject:
   - component: {fileID: 380173054}
   - component: {fileID: 380173053}
   m_Layer: 5
-  m_Name: Arrow Brush
+  m_Name: Wire Brush
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4761,9 +4761,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: BrushEffectController, Assembly-CSharp
-        m_MethodName: ArrowBrush
+      - m_Target: {fileID: 1692912594}
+        m_TargetAssemblyTypeName: BrushFXCustom, Assembly-CSharp
+        m_MethodName: Brush_CloudConnect
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -5173,7 +5173,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: -1514, y: 1030}
+  m_AnchoredPosition: {x: -1514, y: 716}
   m_SizeDelta: {x: 160, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &449739636
@@ -7259,7 +7259,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 'Arrow
+  m_Text: 'Wire
 
     Brush'
 --- !u!222 &703520231
@@ -11452,9 +11452,9 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 'Bubble
+  m_Text: 'Spin
 
-    Brush'
+    Line'
 --- !u!222 &758376098
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -16085,7 +16085,7 @@ GameObject:
   - component: {fileID: 1171382239}
   - component: {fileID: 1171382238}
   m_Layer: 5
-  m_Name: Bubbles Brush
+  m_Name: Spin Line Brush
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -16220,7 +16220,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1692912594}
         m_TargetAssemblyTypeName: BrushFXCustom, Assembly-CSharp
-        m_MethodName: Brush_SprayCycle
+        m_MethodName: Brush_SpinLine
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -16822,6 +16822,7 @@ RectTransform:
   m_Children:
   - {fileID: 1468432147}
   - {fileID: 1132438977}
+  - {fileID: 1265108092}
   - {fileID: 1848251913}
   - {fileID: 871624010}
   - {fileID: 2097815116}
@@ -17216,8 +17217,8 @@ RectTransform:
   - {fileID: 251550146}
   - {fileID: 2063090056}
   - {fileID: 894407138}
-  - {fileID: 1477373951}
   - {fileID: 1171382237}
+  - {fileID: 1477373951}
   - {fileID: 1411221384}
   - {fileID: 380173052}
   - {fileID: 1667614057}
@@ -17369,7 +17370,9 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: "Dots \nBrush"
+  m_Text: 'Smudge
+
+    Brush'
 --- !u!222 &1232475194
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -17413,7 +17416,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 10.335001, y: -5.2}
+  m_AnchoredPosition: {x: 10.335001, y: -1.3999996}
   m_SizeDelta: {x: 18, y: 18}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1237836990
@@ -17605,6 +17608,86 @@ CanvasRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1250628798}
+  m_CullTransparentMesh: 1
+--- !u!1 &1265108091
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1265108092}
+  - component: {fileID: 1265108094}
+  - component: {fileID: 1265108093}
+  m_Layer: 5
+  m_Name: Version_Text
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1265108092
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1265108091}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1.1319938, y: 1.1319938, z: 1.1319938}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1193529233}
+  m_RootOrder: -1
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 1, y: 0}
+  m_AnchorMax: {x: 1, y: 0}
+  m_AnchoredPosition: {x: 1486, y: -715}
+  m_SizeDelta: {x: 132, y: 17}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1265108093
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1265108091}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FontData:
+    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_FontSize: 70
+    m_FontStyle: 0
+    m_BestFit: 0
+    m_MinSize: 10
+    m_MaxSize: 225
+    m_Alignment: 3
+    m_AlignByGeometry: 0
+    m_RichText: 1
+    m_HorizontalOverflow: 1
+    m_VerticalOverflow: 1
+    m_LineSpacing: 1
+  m_Text: v0.1.2
+--- !u!222 &1265108094
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1265108091}
   m_CullTransparentMesh: 1
 --- !u!1 &1268901678
 GameObject:
@@ -18627,7 +18710,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 51.55, y: -10}
+  m_AnchoredPosition: {x: 51.55005, y: -10}
   m_SizeDelta: {x: 103.1, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1371303427
@@ -18858,7 +18941,7 @@ GameObject:
   - component: {fileID: 1411221386}
   - component: {fileID: 1411221385}
   m_Layer: 5
-  m_Name: 'Dots Brush '
+  m_Name: 'Smudge Brush '
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -18991,9 +19074,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: BrushEffectController, Assembly-CSharp
-        m_MethodName: DotsBrush2
+      - m_Target: {fileID: 1692912594}
+        m_TargetAssemblyTypeName: BrushFXCustom, Assembly-CSharp
+        m_MethodName: Brush_Smudge
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -19528,7 +19611,7 @@ GameObject:
   - component: {fileID: 1477373953}
   - component: {fileID: 1477373952}
   m_Layer: 5
-  m_Name: Spray Brush
+  m_Name: Bubble Brush
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -19663,7 +19746,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1692912594}
         m_TargetAssemblyTypeName: BrushFXCustom, Assembly-CSharp
-        m_MethodName: Brush_SpinLine
+        m_MethodName: Brush_Bubble
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -21971,6 +22054,8 @@ MonoBehaviour:
   targetTexture: {fileID: 0}
   fragmentPaintMaterial: {fileID: 2100000, guid: e0708c5c396a40640b9f257ef810d91d,
     type: 2}
+  smudgeMaterial: {fileID: 2100000, guid: 53bf19e6aabdbd341a0d48dc5ab1bcad, type: 2}
+  bleedMaterial: {fileID: 2100000, guid: 4869278e9abd4b04382e30536d53cd20, type: 2}
   brushTexture: {fileID: 2800000, guid: f844f3eb6e0d04d6885cdf68f2e57b4c, type: 3}
   brushCompute: {fileID: 7200000, guid: 2548ac0694be0234c9a6118445b0900f, type: 3}
   brushColor: {r: 0.9528302, g: 0, b: 0, a: 1}
@@ -22003,7 +22088,7 @@ MonoBehaviour:
   chunkSeconds: 2
   uiBlockingDrawing: 0
   sceneReferences: {fileID: 1704130444}
-  canvasSize: 1
+  canvasSize: 3
   gazeCursor: {fileID: 2047322769}
   stampHoldGraceSeconds: 0.15
   paintLayerMask:
@@ -22106,6 +22191,7 @@ MonoBehaviour:
   - {fileID: 2800000, guid: 0e9e9fa50cf5549ef895cbe156fa5e61, type: 3}
   - {fileID: 2800000, guid: 0fba41bd85477476ea663cce9c159e48, type: 3}
   - {fileID: 2800000, guid: c635eafb32b718649867ff4fe20ebfbe, type: 3}
+  - {fileID: 2800000, guid: 0336323b66741dd4f9a7088824b37860, type: 3}
   texCycleBrush_1:
   - {fileID: 2800000, guid: 7a3a24287abcb9a4292b4a73345d542c, type: 3}
   - {fileID: 2800000, guid: b230a689294a19340b4d6c0c215630e5, type: 3}
@@ -23084,7 +23170,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 10.335001, y: -5.2}
+  m_AnchoredPosition: {x: 10.335001, y: -1.3999996}
   m_SizeDelta: {x: 18, y: 18}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1780070160
@@ -24637,7 +24723,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 'Spray
+  m_Text: 'Bubble
 
     Brush'
 --- !u!222 &2003099370
