@@ -22042,7 +22042,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1692912586}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5ce1beb963b0fbf43a862ca99f1fbbdb, type: 3}
   m_Name: 
@@ -22275,8 +22275,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d7324c507d6de09409387a57a6c8cd9e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  SelectCanvasScreen: {fileID: 0}
-  settingsScreen: {fileID: 0}
+  SelectCanvasScreen: {fileID: 1193529232}
+  settingsScreen: {fileID: 1489087846}
   paintManagerCustom: {fileID: 1692912588}
   cursor: {fileID: 423269882}
   pauseCursor: {fileID: 1477134018}

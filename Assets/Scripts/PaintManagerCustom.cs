@@ -633,6 +633,7 @@ public class PaintManagerCustom : MonoBehaviour
         float normSpeed = pxPerSec / denom;
 
         float t01 = Mathf.InverseLerp(velMin, velMax, normSpeed);
+
         float targetPressure = Mathf.Lerp(maxPressure, minPressure, t01);
 
         if (smoothVelocityPressure)
