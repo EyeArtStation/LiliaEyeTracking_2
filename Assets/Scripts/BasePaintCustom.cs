@@ -141,8 +141,12 @@ public class BasePaintCustom
                  Material bleedMaterial,
                  Texture2D brushTex,
                  Color brushColor,
-                 float brushSize, float stampInterval,
-                 float distThreshold, float minPressure, float maxPressure, float maxVel,
+                 float brushSize, 
+                 float stampInterval,
+                 float distThreshold, 
+                 float minPressure, 
+                 float maxPressure, 
+                 float maxVel,
                  ComputeShader optionalCompute = null)
     {
         target = targetTexture;
@@ -265,7 +269,8 @@ public class BasePaintCustom
         if (mode == PaintMode.VelocityLineWidth && useExternalPressureForVelocity)
         {
             // ✅ NEW: trust the manager (already windowed + normalized)
-            targetPressure = Mathf.Clamp(externalPressure, minP, maxP);
+            //targetPressure = Mathf.Clamp(externalPressure, minP, maxP);
+            targetPressure = Mathf.Clamp(externalPressure, 0.01f, 10f);
         }
         else if (lastUV.HasValue)
         {
@@ -360,9 +365,11 @@ public class BasePaintCustom
             case PaintMode.CloudConnect:
                 {
                     // Determine pressure (use your external pressure if that's your active workflow)
-                    float p = (mode == PaintMode.VelocityLineWidth && useExternalPressureForVelocity)
+                    /*float p = (mode == PaintMode.VelocityLineWidth && useExternalPressureForVelocity)
                         ? Mathf.Clamp(externalPressure, minP, maxP)
-                        : currentPressure;
+                        : currentPressure;*/
+
+                    float p = currentPressure;
 
                     // First frame of stroke
                     if (!lastUV.HasValue)
@@ -479,7 +486,8 @@ public class BasePaintCustom
         // Convert to pixel distance (using width keeps behavior stable across aspect)
         float distPixels = distUV * target.width;
 
-        float avgPressure = Mathf.Clamp01((pressureStart + pressureEnd) * 0.5f);
+        //float avgPressure = Mathf.Clamp01((pressureStart + pressureEnd) * 0.5f);
+        float avgPressure = Mathf.Clamp((pressureStart + pressureEnd) * 0.5f, 0.01f, 10f);
 
         // Effective stamp diameter in pixels at this segment's pressure
         float stampPx = Mathf.Max(0.25f, (size * avgPressure) * target.width);
@@ -883,7 +891,8 @@ public class BasePaintCustom
 
         float distPixels = distUV * target.width;
 
-        float avgPressure = Mathf.Clamp01(pressure);
+        //float avgPressure = Mathf.Clamp01(pressure);
+        float avgPressure = Mathf.Clamp(pressure, 0.01f, 10f);
         float stampPx = Mathf.Max(0.25f, (size * avgPressure) * target.width);
 
         float baseBrushPx = Mathf.Max(0.0001f, size * target.width);

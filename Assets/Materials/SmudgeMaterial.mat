@@ -121,7 +121,7 @@ Material:
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
-    - _StampCount: 0
+    - _StampCount: 4
     - _Surface: 0
     - _WorkflowMode: 1
     - _ZWrite: 1

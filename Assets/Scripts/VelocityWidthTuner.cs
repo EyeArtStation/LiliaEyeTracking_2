@@ -1,4 +1,6 @@
 ﻿using UnityEngine;
+using System;
+using System.Reflection;
 
 [DisallowMultipleComponent]
 public class VelocityWidthTuner : MonoBehaviour
@@ -8,41 +10,38 @@ public class VelocityWidthTuner : MonoBehaviour
 
     [Header("Auto apply")]
     public bool applyOnEnable = true;
-    public bool applyEveryFrame = true; // live tuning while you drag sliders
+    public bool applyEveryFrame = true;
 
-    // ---------------- PaintManagerCustom knobs ----------------
-
-    [Header("Manager: Speed → Pressure mapping")]
-    [Range(2, 8)] public int velocityWindow = 6;
-
-    [Tooltip("Normalized speed where thinning begins (higher = thick sooner).")]
-    [Range(0.0001f, 0.05f)] public float velMin = 0.008f;
-
-    [Tooltip("Normalized speed where you're fully thin (lower = more change while moving).")]
-    [Range(0.005f, 0.2f)] public float velMax = 0.045f;
-
-    [Tooltip("Manager-side smoothing speed. Lower = more lag/ink inertia.")]
-    [Range(0.1f, 40f)] public float pressureSmooth = 8f;
-
+    // ---------------- Manager knobs (these exist) ----------------
     [Header("Manager: Pressure range (width envelope)")]
-    [Range(0.01f, 1f)] public float minPressure = 0.28f;
-    [Range(0.01f, 1f)] public float maxPressure = 0.95f;
+    [Range(0.01f, 2f)] public float minPressure = 0.28f;
+    [Range(0.01f, 4f)] public float maxPressure = 1.20f;
 
     [Header("Manager toggles")]
     public bool smoothVelocityPressure = true;
 
-    // ---------------- BasePaintCustom knobs ----------------
+    // ---------------- VelocityWidthSimple knobs (best-guess) ----------------
+    // These are NOT on PaintManagerCustom directly anymore — they should map to velWidth.
+    // We apply them via reflection so you don't get compile errors if your VelocityWidthSimple uses different names.
+    [Header("VelocityWidthSimple (velWidth)")]
+    [Tooltip("How much the width can expand above 1.0 (if your class uses a range/boost concept).")]
+    [Range(0f, 3f)] public float widthRange = 0.75f;
 
+    [Tooltip("Speed->width smoothing (higher = more lag).")]
+    [Range(0.01f, 80f)] public float smooth = 12f;
+
+    [Tooltip("Optional: normalized speed min (where effect begins).")]
+    [Range(0.0001f, 1f)] public float speedMin = 0.02f;
+
+    [Tooltip("Optional: normalized speed max (where effect is max).")]
+    [Range(0.0001f, 1f)] public float speedMax = 0.12f;
+
+    // ---------------- Painter knobs (these exist on BasePaintCustom) ----------------
     [Header("Painter: Attack / Release shaping (ink feel)")]
     public bool enablePainterSmoothing = true;
 
-    [Tooltip("How fast it THINS when speed increases (higher = thins quickly).")]
     [Range(0.1f, 200f)] public float thinAttackRate = 45f;
-
-    [Tooltip("How fast it THICKENS when speed decreases (lower = thicker changes linger).")]
     [Range(0.1f, 200f)] public float thickReleaseRate = 10f;
-
-    [Tooltip("Optional: ignore tiny speeds in BasePaint's internal speed path. Mostly irrelevant if using external pressure.")]
     [Range(0f, 0.01f)] public float speedDeadZone = 0f;
 
     [Header("Optional: keep Velocity mode selected")]
@@ -50,7 +49,6 @@ public class VelocityWidthTuner : MonoBehaviour
 
     void Reset()
     {
-        // Try to find in scene automatically
         if (paintManager == null) paintManager = FindObjectOfType<PaintManagerCustom>();
     }
 
@@ -68,14 +66,13 @@ public class VelocityWidthTuner : MonoBehaviour
     {
         if (paintManager == null) return;
 
-        // ---- Apply to PaintManagerCustom ----
-        paintManager.velocityWindow = velocityWindow;
-        paintManager.velMin = Mathf.Min(velMin, velMax - 0.0001f);
-        paintManager.velMax = Mathf.Max(velMax, velMin + 0.0001f);
-        paintManager.pressureSmooth = pressureSmooth;
+        // ---- Apply to PaintManagerCustom (these fields EXIST) ----
+        paintManager.smoothVelocityPressure = smoothVelocityPressure;
         paintManager.minPressure = Mathf.Min(minPressure, maxPressure - 0.0001f);
         paintManager.maxPressure = Mathf.Max(maxPressure, minPressure + 0.0001f);
-        paintManager.smoothVelocityPressure = smoothVelocityPressure;
+
+        // ---- Apply to velWidth (best-effort, NO compile errors) ----
+        ApplyToVelWidth(paintManager.velWidth);
 
         // ---- Apply to BasePaintCustom (painter) ----
         var p = paintManager.painter;
@@ -91,7 +88,57 @@ public class VelocityWidthTuner : MonoBehaviour
         }
     }
 
-    // Nice for testing without playmode UI
+    private void ApplyToVelWidth(object velWidthObj)
+    {
+        if (velWidthObj == null) return;
+
+        // Try common names people use in this exact setup.
+        // If your VelocityWidthSimple uses different names, this will just skip them harmlessly.
+        TrySetFieldOrProp(velWidthObj, "widthRange", widthRange);
+        TrySetFieldOrProp(velWidthObj, "WidthRange", widthRange);
+        TrySetFieldOrProp(velWidthObj, "range", widthRange);
+        TrySetFieldOrProp(velWidthObj, "Range", widthRange);
+
+        TrySetFieldOrProp(velWidthObj, "smooth", smooth);
+        TrySetFieldOrProp(velWidthObj, "Smooth", smooth);
+        TrySetFieldOrProp(velWidthObj, "smoothing", smooth);
+        TrySetFieldOrProp(velWidthObj, "Smoothing", smooth);
+
+        // Optional speed mapping knobs
+        float sMin = Mathf.Min(speedMin, speedMax - 0.0001f);
+        float sMax = Mathf.Max(speedMax, speedMin + 0.0001f);
+
+        TrySetFieldOrProp(velWidthObj, "speedMin", sMin);
+        TrySetFieldOrProp(velWidthObj, "SpeedMin", sMin);
+        TrySetFieldOrProp(velWidthObj, "velMin", sMin);
+        TrySetFieldOrProp(velWidthObj, "VelMin", sMin);
+
+        TrySetFieldOrProp(velWidthObj, "speedMax", sMax);
+        TrySetFieldOrProp(velWidthObj, "SpeedMax", sMax);
+        TrySetFieldOrProp(velWidthObj, "velMax", sMax);
+        TrySetFieldOrProp(velWidthObj, "VelMax", sMax);
+    }
+
+    private void TrySetFieldOrProp(object obj, string name, float value)
+    {
+        var t = obj.GetType();
+
+        // field
+        var f = t.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (f != null && f.FieldType == typeof(float))
+        {
+            f.SetValue(obj, value);
+            return;
+        }
+
+        // property
+        var p = t.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (p != null && p.CanWrite && p.PropertyType == typeof(float))
+        {
+            p.SetValue(obj, value);
+        }
+    }
+
     [ContextMenu("Apply Now")]
     public void ApplyNow() => Apply();
 }

@@ -23,11 +23,11 @@ public class PaintManagerCustom : MonoBehaviour
     public float stampInterval = 0.05f;
     public float distanceThreshold = 0.01f;
 
-    [Header("Velocity Width (Resolution Independent)")]
-    [Range(2, 8)] public int velocityWindow = 4;
-    public float velMin = 0.0025f;
-    public float velMax = 0.08f;
-    public float pressureSmooth = 18f;
+    //[Header("Velocity Width (Resolution Independent)")]
+    //[Range(2, 8)] public int velocityWindow = 4;
+    //public float velMin = 0.0025f;
+    //public float velMax = 0.08f;
+    //public float pressureSmooth = 18f;
     public float minPressure = 0.2f;
     public float maxPressure = 1.0f;
 
@@ -71,6 +71,10 @@ public class PaintManagerCustom : MonoBehaviour
 
     public SceneReferences sceneReferences;
 
+    [Header("Velocity Width (Simple)")]
+    public VelocityWidthSimple velWidth = new VelocityWidthSimple();
+
+
     public enum CanvasSize
     {
         size_1024x1024,
@@ -82,9 +86,9 @@ public class PaintManagerCustom : MonoBehaviour
     public CanvasSize canvasSize;
 
     // ---------- velocity window ----------
-    private struct VelSample { public Vector2 px; public float t; }
-    private readonly Queue<VelSample> velSamples = new Queue<VelSample>(8);
-    private float smoothedPressure = 1f;
+    //private struct VelSample { public Vector2 px; public float t; }
+    //private readonly Queue<VelSample> velSamples = new Queue<VelSample>(8);
+    //private float smoothedPressure = 1f;
 
     public GameObject gazeCursor;
     private float gazeCursorSize;
@@ -198,8 +202,12 @@ public class PaintManagerCustom : MonoBehaviour
             bleedMaterial,      // NEW
             brushTexture,
             brushColor,
-            brushSize, stampInterval, distanceThreshold,
-            minPressure, maxPressure, maxSpeed,
+            brushSize, 
+            stampInterval, 
+            distanceThreshold,
+            minPressure, 
+            maxPressure, 
+            maxSpeed,
             brushCompute
         );
 
@@ -242,8 +250,10 @@ public class PaintManagerCustom : MonoBehaviour
         if (!useMouse && TobiiGazeProvider.Instance != null)
             TobiiGazeProvider.Instance.TryGetGazeScreenPx(out startPx);
 
-        velSamples.Clear();
-        PrimeVelocity(startPx);
+        velWidth.Reset(startPx);
+        painter.externalPressure = 1f + velWidth.widthRange; // “juicy” start
+        //velSamples.Clear();
+        //PrimeVelocity(startPx);
 
         // Seed UV + force an initial visible mark if we’re on the canvas
         if (TryGetPointer(out var uv0, out var _hitPx0))
@@ -253,7 +263,7 @@ public class PaintManagerCustom : MonoBehaviour
             lastValidUVTime = Time.unscaledTime;
 
             // Force a dot immediately so you don’t need a second toggle or movement
-            painter.externalPressure = maxPressure;
+            //painter.externalPressure = maxPressure;
             painter.UpdateStroke(uv0, 0f);
             painter.Flush();
         }
@@ -397,8 +407,21 @@ public class PaintManagerCustom : MonoBehaviour
                 }
             }
 
-            float pressure = ComputeVelocityPressure(screenPx, Time.deltaTime);
-            painter.externalPressure = pressure;
+            //int minDim = Mathf.Min(targetTexture.width, targetTexture.height);
+            //float widthMult = velWidth.Update(screenPx, Time.deltaTime, minDim);
+
+            // This is a *multiplier* (often > 1). We feed it straight into BasePaintCustom.
+            //painter.externalPressure = widthMult;
+
+            if (paintMode == BasePaintCustom.PaintMode.VelocityLineWidth)
+            {
+                int minDim = Mathf.Min(targetTexture.width, targetTexture.height);
+                painter.externalPressure = velWidth.Update(screenPx, Time.deltaTime, minDim);
+            }
+            else
+            {
+                painter.externalPressure = 1f;
+            }
 
             // 2) Raycast to plane
             bool hitCanvas = TryGetPointer(out var uv, out var _hitPx);
@@ -511,7 +534,7 @@ public class PaintManagerCustom : MonoBehaviour
         isDrawing = true;
         pendingReseed = false;
 
-        velSamples.Clear();
+        //velSamples.Clear();
 
         if (!useMouse)
         {
@@ -523,7 +546,8 @@ public class PaintManagerCustom : MonoBehaviour
             }
         }
 
-        PrimeVelocity(startPx);
+        //PrimeVelocity(startPx);
+        velWidth.Reset(startPx);
 
         if (TryGetPointer(out var uv0, out var _hitPx0))
         {
@@ -602,14 +626,14 @@ public class PaintManagerCustom : MonoBehaviour
         return false;
     }
 
-    void PrimeVelocity(Vector2 screenPx)
+    /*void PrimeVelocity(Vector2 screenPx)
     {
         float now = Time.unscaledTime;
-        velSamples.Enqueue(new VelSample { px = screenPx, t = now });
-        smoothedPressure = maxPressure;
-    }
+        //velSamples.Enqueue(new VelSample { px = screenPx, t = now });
+        //smoothedPressure = maxPressure;
+    }*/
 
-    float ComputeVelocityPressure(Vector2 screenPx, float dt)
+    /*float ComputeVelocityPressure(Vector2 screenPx, float dt)
     {
         float now = Time.unscaledTime;
 
@@ -647,7 +671,7 @@ public class PaintManagerCustom : MonoBehaviour
         }
 
         return smoothedPressure;
-    }
+    }*/
 
     void PushUndo()
     {
@@ -816,8 +840,9 @@ public class PaintManagerCustom : MonoBehaviour
             if (!useMouse && TobiiGazeProvider.Instance != null)
                 TobiiGazeProvider.Instance.TryGetGazeScreenPx(out startPx);
 
-            velSamples.Clear();
-            PrimeVelocity(startPx);
+            //velSamples.Clear();
+            //PrimeVelocity(startPx);
+            velWidth.Reset(startPx);
             PushUndo();
         }
 

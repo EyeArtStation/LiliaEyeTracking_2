@@ -22028,6 +22028,7 @@ GameObject:
   - component: {fileID: 1692912594}
   - component: {fileID: 1692912595}
   - component: {fileID: 1692912596}
+  - component: {fileID: 1692912597}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -22047,7 +22048,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5ce1beb963b0fbf43a862ca99f1fbbdb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  useMouse: 0
+  useMouse: 1
   smoothVelocityPressure: 0
   useComputePath: 0
   paintTarget: {fileID: 1166630515}
@@ -22062,10 +22063,6 @@ MonoBehaviour:
   brushSize: 0.01
   stampInterval: 0.0005
   distanceThreshold: 0.01
-  velocityWindow: 4
-  velMin: 0.0025
-  velMax: 0.08
-  pressureSmooth: 18
   minPressure: 0.25
   maxPressure: 1.5
   maxSpeed: 25
@@ -22088,6 +22085,10 @@ MonoBehaviour:
   chunkSeconds: 2
   uiBlockingDrawing: 0
   sceneReferences: {fileID: 1704130444}
+  velWidth:
+    thinSpeed: 0.05
+    widthRange: 0.8
+    inertiaSeconds: 0.1
   canvasSize: 3
   gazeCursor: {fileID: 2047322769}
   stampHoldGraceSeconds: 0.15
@@ -22246,6 +22247,33 @@ MonoBehaviour:
   - {fileID: 1371303427}
   - {fileID: 1822883084}
   - {fileID: 110100039}
+--- !u!114 &1692912597
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1692912586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 17cc5651e2286ea4dba5de05cf935c14, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  paintManager: {fileID: 1692912588}
+  applyOnEnable: 1
+  applyEveryFrame: 1
+  minPressure: 0.28
+  maxPressure: 0.95
+  smoothVelocityPressure: 0
+  widthRange: 0.75
+  smooth: 12
+  speedMin: 0.02
+  speedMax: 0.12
+  enablePainterSmoothing: 1
+  thinAttackRate: 109.1
+  thickReleaseRate: 107.1
+  speedDeadZone: 0
+  forceVelocityMode: 0
 --- !u!1 &1704130443
 GameObject:
   m_ObjectHideFlags: 0
